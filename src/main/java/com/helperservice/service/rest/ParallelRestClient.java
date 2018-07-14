@@ -32,18 +32,14 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.impl.client.HttpClients;
 
-import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * This class can be used to perform parallel rest operations.
- * Dependency: HttpClient, Lombok,
+ * Dependency: HttpClient, Lombok
  */
 @Getter
 public class ParallelRestClient {
@@ -94,13 +90,12 @@ public class ParallelRestClient {
 
             List<Callable<HttpResponse>> callableList = new ArrayList<>();
             this.httpRequests.forEach((requestId, httpUriRequest) -> {
-                try {
-                    this.httpClient.execute(httpUriRequest);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                callableList.add(()->  {
+                    System.out.println("Executing for requestId: "+ requestId);
+                    return this.httpClient.execute(httpUriRequest);
+                });
             });
-            return executorService.invokeAll(callableList)
+            return this.executorService.invokeAll(callableList)
                     .stream()
                     .map(httpResponseFuture -> {
                         HttpResponse response=null;
@@ -117,6 +112,27 @@ public class ParallelRestClient {
         return null;
     }
 
+    public Map<String,HttpResponse> executeAllAndReturnRequestContext(){
+        Map<String,HttpResponse> httpResponseMap = new HashMap<>();
+        if (!this.httpRequests.isEmpty()){
+            Map<String,Future<HttpResponse>> futureMap = new HashMap<>();
+            httpRequests.forEach((requestId, httpUriRequest)-> {
+                futureMap.put(requestId,this.executorService.submit(()-> {
+                    System.out.println("Executing for requestId: "+ requestId);
+                    return this.httpClient.execute(httpUriRequest);
+                }));
+            });
+
+            futureMap.forEach((requestId,futureObj)-> {
+                try {
+                    httpResponseMap.put(requestId,futureObj.get());
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        return httpResponseMap;
+    }
 
     public static void main(String[] args) {
         System.out.println(UUID.randomUUID().toString());
