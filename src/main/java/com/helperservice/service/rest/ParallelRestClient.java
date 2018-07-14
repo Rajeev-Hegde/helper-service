@@ -26,10 +26,10 @@ package com.helperservice.service.rest;
 
 import lombok.Getter;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 
 import java.io.IOException;
@@ -47,7 +47,7 @@ public class ParallelRestClient {
 
     private int MAX_THREADS = 5;
     private ExecutorService executorService;
-    private HttpClient httpClient;
+    private CloseableHttpClient httpClient;
 
     private Map<String, HttpUriRequest> httpRequests = new HashMap<>();
 
@@ -56,7 +56,7 @@ public class ParallelRestClient {
     }
 
 
-    ParallelRestClient(HttpClient httpClient) {
+    ParallelRestClient(CloseableHttpClient httpClient) {
         this.httpClient = httpClient;
         this.executorService = Executors.newFixedThreadPool(MAX_THREADS);
     }
@@ -135,7 +135,8 @@ public class ParallelRestClient {
         return httpResponseMap;
     }
 
-    public void shutDown(){
+    public void shutDown() throws IOException {
+        this.httpClient.close();
         this.executorService.shutdown();
     }
 
@@ -154,10 +155,11 @@ public class ParallelRestClient {
                 "https://api.vk.com/method/database.getCountries");
 
         Long sinceTime = new Date().getTime();
-        HttpClient httpClient = HttpClients.createDefault();
+        CloseableHttpClient httpClient = HttpClients.createMinimal();
         for (String url : urls) {
-            httpClient.execute(new HttpGet(url));
+            httpClient.execute(new HttpGet(url)).getEntity().getContent();
         }
+        httpClient.close();
 
         Long untilTime = new Date().getTime();
 
