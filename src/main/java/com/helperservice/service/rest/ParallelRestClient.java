@@ -32,6 +32,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.impl.client.HttpClients;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
@@ -134,8 +135,41 @@ public class ParallelRestClient {
         return httpResponseMap;
     }
 
-    public static void main(String[] args) {
-        System.out.println(UUID.randomUUID().toString());
+    public void shutDown(){
+        this.executorService.shutdown();
+    }
+
+    public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+        return this.executorService.awaitTermination(timeout,unit);
+    }
+
+    public static void main(String[] args) throws InterruptedException, IOException {
+
+
+        ParallelRestClient parallelRestClient= new ParallelRestClient();
+        List<String> urls = Arrays.asList("https://api.vk.com/method/database.getCountries",
+                "https://api.vk.com/method/database.getCountries",
+                "https://api.vk.com/method/database.getCountries",
+                "https://api.vk.com/method/database.getCountries",
+                "https://api.vk.com/method/database.getCountries");
+
+        Long sinceTime = new Date().getTime();
+        HttpClient httpClient = HttpClients.createDefault();
+        for (String url : urls) {
+            httpClient.execute(new HttpGet(url));
+        }
+
+        Long untilTime = new Date().getTime();
+
+        System.out.println("Sequence Time Taken: "+ (untilTime-sinceTime));
+
+        sinceTime = new Date().getTime();
+        urls.forEach(url-> parallelRestClient.addRequest(new HttpGet(url)));
+        parallelRestClient.executeAll();
+        parallelRestClient.shutDown();
+        untilTime = new Date().getTime();
+
+        System.out.println("Parallel execution time taken: "+ (untilTime-sinceTime));
     }
 
 }
